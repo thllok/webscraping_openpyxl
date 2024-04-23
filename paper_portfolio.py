@@ -1,4 +1,5 @@
 import sys
+import dateutil
 from win32com.client import Dispatch
 import win32com.client as win32
 from openpyxl.formatting.rule import DataBarRule
@@ -17,15 +18,16 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import os
 import shutil
+import sys
 def findUserName():
     path = os.path.expanduser('~')
     pMax = len(path)
     pMin = path.find('Users')+6
     userName = path[pMin:pMax]
     return userName
-def web_scrap(url, x_path,renamed_file):
+def web_scrap(url, x_path,renamed_file,file):
     download_dir = 'C:/Users/' + findUserName() + '/Downloads/'
-    file_name = "SEMI_holdings"
+    file_name = file+"_holdings"
     options = webdriver.ChromeOptions()
     options.add_experimental_option("useAutomationExtension", False)
     options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
@@ -50,20 +52,37 @@ def web_scrap(url, x_path,renamed_file):
         time.sleep(1)
         timer += 1
         print(str(timer) + " second(s) have passed")
-    file_date= pd.read_csv(r"C:\Users\elvistsui\Downloads\SEMI_holdings.csv", on_bad_lines='skip', header=None).iloc[0, 1]
-    file_date=datetime.strptime(file_date,"%d/%b/%Y")
-    shutil.move(download_dir + file_name+".csv", renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".csv")
-    wb_tickertostrnexcel(file_date,renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d"))
-    driver.close()
-    return renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".xlsx", file_date
-def wb_tickertostrnexcel(file_date,file):
-    benchmark= pd.read_csv(file+".csv",on_bad_lines='skip',header =2 ).dropna(axis=0)
-    benchmark["Ticker"]=[str(i) for i in benchmark["Ticker"]]
-    new_file = Workbook()
-    ws = new_file[new_file.sheetnames[0]]
-    ws.title = "SEMI_holdings"+file_date.strftime("%m%d")
-    ws["A1"].value = "Fund Holdings as of"
-    ws["B1"].value = file_date.strftime("%d-%b-%y")
+    if file == "SEMI":
+        file_date= pd.read_csv(download_dir+"SEMI_holdings.csv", on_bad_lines='skip', header=None).iloc[0, 1]
+        file_date=datetime.strptime(file_date,"%d/%b/%Y")
+        shutil.move(download_dir + file_name+".csv", renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".csv")
+        wb_tickertostrnexcel(file_date,renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d"),"SEMI")
+        driver.close()
+        return renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".xlsx", file_date
+    else:
+        file_date = pd.read_csv(download_dir + "SOXX_holdings.csv", on_bad_lines='skip').iloc[0].item()
+        file_date = datetime.strptime(file_date, "%b %d, %Y")
+        shutil.move(download_dir + file_name+".csv", renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".csv")
+        wb_tickertostrnexcel(file_date,renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d"),"SOXX")
+        os.remove(renamed_dir +"\\"+file_name+"_"+file_date.strftime("%Y%m%d")+".csv")
+        driver.close()
+def wb_tickertostrnexcel(file_date,file,index):
+    if index=="SEMI":
+        benchmark= pd.read_csv(file+".csv",on_bad_lines='skip',header =2 ).dropna(axis=0)
+        benchmark["Ticker"]=[str(i) for i in benchmark["Ticker"]]
+        new_file = Workbook()
+        ws = new_file[new_file.sheetnames[0]]
+        ws.title = "SEMI_holdings"+file_date.strftime("%m%d")
+        ws["A1"].value = "Fund Holdings as of"
+        ws["B1"].value = file_date.strftime("%d-%b-%y")
+    else:
+        benchmark= pd.read_csv(file+".csv",on_bad_lines='skip',header =9 ).dropna(axis=0)
+        benchmark["Ticker"]=[str(i) for i in benchmark["Ticker"]]
+        new_file = Workbook()
+        ws = new_file[new_file.sheetnames[0]]
+        ws.title = "SOXX_holdings"+file_date.strftime("%m%d")
+        ws["A1"].value = "Fund Holdings as of"
+        ws["B1"].value = file_date.strftime("%d-%b-%y")
     rows = dataframe_to_rows(benchmark, index=False, header=True)
     for r_idx, row in enumerate(rows, 3):
         for c_idx, value in enumerate(row, 1):
@@ -115,7 +134,7 @@ def formatting():
 
 
 def last_friday():
-    today = datetime.today()
+    today = datetime.today().replace(second=0,hour=0,microsecond=0,minute=0)
     offset = (today.weekday() - 4) % 7
     last_friday_date = today - timedelta(days=offset)
     return last_friday_date
@@ -130,25 +149,39 @@ def check_if_updated(date):
         return 1
 
 def portfolio_weighting(ws):
-    ws["A2"].value = "as of "+last_friday().strftime("%m%d%Y")
+    ws["A2"].value = "as of "+last_friday().strftime("%m/%d/%Y")
     ws["A2"].font=font_bold
     ws["A2"].alignment=Alignment(vertical="bottom")
     ws["I2"].value = (datetime(last_friday().year,last_friday().month,1)-timedelta(1)).strftime("%m/%d/%Y")
+    ws["I3"].value = last_friday().strftime("%m/%d/%Y")
     ws["J2"].value = (datetime(last_friday().year,1,1)-timedelta(1)).strftime("%m/%d/%Y")
     ws["I4"].value = "MTD ("+last_friday().strftime("%b")+") Performance"
     ws["J4"].value = "YTD "+str(last_friday().year)+" Performance"
-    #holding_report = pd.read_excel("Holdings - "+last_friday().strftime("%m%d")+"xlsx",header=9).iloc[1:-2,1::]
-    holding_report = pd.read_excel(r"C:\Users\elvistsui\PycharmProjects\attribution_summary\Holdings - 0329.XLSX",header=9).iloc[1:-2,1::]
+    holding_report = pd.read_excel("Holdings - "+last_friday().strftime("%m%d")+".xlsx",header=9).iloc[1:-2,1::]
+    #holding_report = pd.read_excel("Holdings - 0329.XLSX",header=9).iloc[1:-2,1::]
     Name = holding_report[holding_report.columns[0]]
     ticker = [i +" Equity" for i in holding_report["Ticker"]]
     weighting = holding_report["% Wgt"]
+    country_code= {"NA":"Netherlands",
+                   "AU":"Australia",
+                   "HK":"Hong Kong",
+                   "SM":"Spain",
+                   "BZ":"Brazil",
+                   "IM":"Italy",
+                   "US":"United Stated",
+                   "FP":"France",
+                   "JP":"Japan",
+                   "GR":"Germany",
+                   "TT":"Taiwan",
+                   "KR":"Korea(South)"}
     for row in ws['A5:R100']:
         for cell in row:
             cell.value = None
     for i, (x,y,z) in enumerate(zip(Name,ticker,weighting), start=5):
         ws.cell(row=i, column=1).value = x
         ws.cell(row=i, column=2).value = y
-        ws.cell(row=i, column=3).value = "=IFERROR(INDEX('Benchmark Weighting'!E:E,MATCH('Portfolio Weighting'!Q"+str(i)+",'Benchmark Weighting'!A:A,0)),"+chr(34)+"Taiwan"+chr(34)+")"
+        print(y.split(" "))
+        ws.cell(row=i, column=3).value = country_code[y.split(" ")[1]]
         ws.cell(row=i, column=4).value = "=IFERROR(INDEX('Portfolio Theme & GICS'!B:B,MATCH(B"+str(i)+",'Portfolio Theme & GICS'!A:A,0)),"+chr(34)+chr(34)+")"
         ws.cell(row=i, column=5).value = "=IFERROR(INDEX('Portfolio Theme & GICS'!F:F,MATCH(B"+str(i)+",'Portfolio Theme & GICS'!E:E,0)),"+chr(34)+chr(34)+")"
         ws.cell(row=i, column=6).value = z/100
@@ -168,7 +201,7 @@ def portfolio_weighting(ws):
     ws["O" + str(i + 3)].value = "Active Share"
 
     ws["P"+str(i+2)].value = "=1-SUM(G5:G"+str(i)+")"
-    ws["P" + str(i + 3)].value = "=SUM(P5:P"+str(i)+")/2"
+    ws["P" + str(i + 3)].value = "=SUM(P5:P"+str(i+2)+")/2"
     ws["O"+str(i+2)].value = "Other ACWI IMI Weighting"
     ws["O" + str(i + 3)].value = "Active Share"
 
@@ -185,7 +218,7 @@ def benchmark_weighting(ws,file_name):
         for cell in row:
             cell.value = None
     ws["A1"].value = "iShares MSCI Global Semiconductors ETF (proxy of MSCI ACWI IMI Semi Index)"
-    ws["A2"].value = last_friday().strftime("%m%d%Y")
+    ws["A2"].value = last_friday().strftime("%m/%d/%Y")
     for i in range(2):
         ws["A"+str(i+1)].font=font_bold
         ws["A" + str(i + 1)].alignment = Alignment(vertical="center",horizontal="left")
@@ -205,8 +238,7 @@ def benchmark_weighting(ws,file_name):
      'YTD Excess Return',
      'Missed Out Names\n(Unweighted & YTD outperformed >5%)']
     benchmark = pd.read_excel(file_name,header =2 ).dropna(axis=0)
-    print(benchmark)
-    print(benchmark.columns)
+    benchmark=benchmark[benchmark[benchmark.columns[3]]=="Equity"]
     x = benchmark[["Ticker","Name","Sector","Location","Weight (%)"]]
     rows = dataframe_to_rows(x, index=False, header=False)
 
@@ -256,23 +288,32 @@ def benchmark_weighting(ws,file_name):
         for j in range(5):
             ws.cell(row=5+i, column=j+1).font=font_notbold
             ws.cell(row=5 + i, column=j + 1).alignment = Alignment(vertical="center",horizontal="left")
-        for j in range(5):
             ws.cell(row=5+i,column=j+6).alignment = Alignment(vertical="center",horizontal="center")
             ws.cell(row=5 + i, column=j + 6).font=font_notbold
             ws.cell(row=5 + i, column=j + 6).number_format="0.0%"
 
     return ws
 def run_macro(macro_wb, macro_name, result_wb):
-    xl = Dispatch("Excel.Application")
-    xl.Visible = False
+    xl = win32.gencache.EnsureDispatch("Excel.Application")
+    xl.Visible = True
     xl.DisplayAlerts = False
-    wb_macro = xl.Workbooks.Open(macro_wb)
-    wb = xl.Workbooks.Open(result_wb)
+    wb_macro = openWorkbook(xl,macro_wb)
+    wb = openWorkbook(xl,result_wb)
     xl.Application.Run(macro_name)
     wb.Close(SaveChanges=True)
     wb_macro.Close()
     xl.Application.Quit
     del xl
+def openWorkbook(xlapp, xlfile):
+    try:
+        xlwb = xlapp.Workbooks(xlfile)
+    except Exception as e:
+        try:
+            xlwb = xlapp.Workbooks.Open(xlfile)
+        except Exception as e:
+            print(e)
+            xlwb = None
+    return(xlwb)
 if __name__ == "__main__":
     formatting()
     xls="/html/body/div[1]/div[2]/div/div/div/div/div/div[1]/div/div[2]/header[2]/div[1]/div[2]/ul/li[4]/a"
@@ -280,16 +321,20 @@ if __name__ == "__main__":
     x_path = '/html/body/div[1]/div[2]/div/div/div/div/div/div[13]/div/div/div/div[2]/a[1]'
     x_url = 'https://www.ishares.com/uk/professional/en/products/319084/ishares-msci-global-semiconductors-ucits-etf?switchLocale=y&siteEntryPassthrough=true'
     renamed_dir = os.getcwd()
-    file_name, file_date= web_scrap(x_url, csv, renamed_dir)
-    #correct_date=check_if_updated(file_date)
-    correct_date=1
+    file_name, file_date= web_scrap(x_url, csv, renamed_dir,"SEMI")
+    soxx_url="https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"
+    soxx_csv = "/html/body/div[1]/div[2]/div/div/div/div/div/div[14]/div/div/div/div[2]/a"
+    correct_date=check_if_updated(file_date)
+    print(correct_date)
     if correct_date:
-        #wb=load_workbook("F:\Elvis Tsui\10. Global Semi\SVLO Semi Paper Portfolio_"+last_friday().strftime("%Y%m%d")+".xlsx")
-        wb=load_workbook(r"C:\Users\elvistsui\PycharmProjects\attribution_summary\SVLO Semi Paper Portfolio_20240331.xlsx")
+        web_scrap(soxx_url, soxx_csv, renamed_dir,"SOXX")
+        wb=load_workbook("SVLO Semi Paper Portfolio_"+(last_friday()-timedelta(7)).strftime("%Y%m%d")+".xlsx")
         ws=wb["Portfolio Weighting"]
         ws=portfolio_weighting(ws)
         ws=wb["Benchmark Weighting"]
         ws=benchmark_weighting(ws,file_name)
-        wb.save("testing.xlsx")
-   # run_macro("formatting_macro.xlsm","databar_format", "testing.xlsx")
-    print("testing")
+        wb.save("SVLO Semi Paper Portfolio_"+last_friday().strftime("%Y%m%d")+".xlsx")
+    marco="'"+os.getcwd()+"\\formatting_macro.xlsm'!Module1.databar_format"
+    run_macro(os.getcwd()+"\\formatting_macro.xlsm",marco, os.getcwd()+"\\"+"SVLO Semi Paper Portfolio_"+last_friday().strftime("%Y%m%d")+".xlsx")
+    os.remove(os.getcwd()+"\\Semi_holdings_"+last_friday().strftime("%Y%m%d")+".csv")
+    #os.rename(os.getcwd()+"\\Semi_holdings_"+last_friday().strftime("%Y%m%d")+".excel", os.getcwd()+"\\iShares-MSCI-Global-Semiconductors-UCITS-ETF-USD-Acc_fund-"+last_friday().strftime("%Y%m%d")+".excel")
