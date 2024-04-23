@@ -174,6 +174,7 @@ def portfolio_weighting(ws):
                    "GR":"Germany",
                    "TT":"Taiwan",
                    "KR":"Korea(South)"}
+    country_tocode = inv_map = {a: b for b, a in country_code.items()}
     for row in ws['A5:R100']:
         for cell in row:
             cell.value = None
