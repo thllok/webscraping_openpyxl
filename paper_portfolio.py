@@ -148,152 +148,6 @@ def check_if_updated(date):
     else:
         return 1
 
-def portfolio_weighting(ws):
-    ws["A2"].value = "as of "+last_friday().strftime("%m/%d/%Y")
-    ws["A2"].font=font_bold
-    ws["A2"].alignment=Alignment(vertical="bottom")
-    ws["I2"].value = (datetime(last_friday().year,last_friday().month,1)-timedelta(1)).strftime("%m/%d/%Y")
-    ws["I3"].value = last_friday().strftime("%m/%d/%Y")
-    ws["J2"].value = (datetime(last_friday().year,1,1)-timedelta(1)).strftime("%m/%d/%Y")
-    ws["I4"].value = "MTD ("+last_friday().strftime("%b")+") Performance"
-    ws["J4"].value = "YTD "+str(last_friday().year)+" Performance"
-    holding_report = pd.read_excel("Holdings - "+last_friday().strftime("%m%d")+".xlsx",header=9).iloc[1:-2,1::]
-    #holding_report = pd.read_excel("Holdings - 0329.XLSX",header=9).iloc[1:-2,1::]
-    Name = holding_report[holding_report.columns[0]]
-    ticker = [i +" Equity" for i in holding_report["Ticker"]]
-    weighting = holding_report["% Wgt"]
-    country_code= {"NA":"Netherlands",
-                   "AU":"Australia",
-                   "HK":"Hong Kong",
-                   "SM":"Spain",
-                   "BZ":"Brazil",
-                   "IM":"Italy",
-                   "US":"United Stated",
-                   "FP":"France",
-                   "JP":"Japan",
-                   "GR":"Germany",
-                   "TT":"Taiwan",
-                   "KR":"Korea(South)"}
-    country_tocode = inv_map = {a: b for b, a in country_code.items()}
-    for row in ws['A5:R100']:
-        for cell in row:
-            cell.value = None
-    for i, (x,y,z) in enumerate(zip(Name,ticker,weighting), start=5):
-        ws.cell(row=i, column=1).value = x
-        ws.cell(row=i, column=2).value = y
-        print(y.split(" "))
-        ws.cell(row=i, column=3).value = country_code[y.split(" ")[1]]
-        ws.cell(row=i, column=4).value = "=IFERROR(INDEX('Portfolio Theme & GICS'!B:B,MATCH(B"+str(i)+",'Portfolio Theme & GICS'!A:A,0)),"+chr(34)+chr(34)+")"
-        ws.cell(row=i, column=5).value = "=IFERROR(INDEX('Portfolio Theme & GICS'!F:F,MATCH(B"+str(i)+",'Portfolio Theme & GICS'!E:E,0)),"+chr(34)+chr(34)+")"
-        ws.cell(row=i, column=6).value = z/100
-        ws.cell(row=i, column=7).value = "=IFERROR(INDEX('Benchmark Weighting'!F:F,MATCH('Portfolio Weighting'!Q"+str(i)+",'Benchmark Weighting'!A:A,0)),0)"
-        ws.cell(row=i, column=8).value = "=F"+str(i)+"-G"+str(i)
-        ws.cell(row=i, column=9).value = "=FDS(R"+str(i)+","+chr(34)+"P_TOTAL_RETURNC("+chr(34)+"&$I$2&"+chr(34)+","+chr(34)+"&$I$3&"+chr(34)+")"+chr(34)+")/100"
-        ws.cell(row=i, column=10).value ="=FDS(R"+str(i)+","+chr(34)+"P_TOTAL_RETURNC("+chr(34)+"&$J$2&"+chr(34)+","+chr(34)+"&$K$3&"+chr(34)+")"+chr(34)+")/100"
-        ws.cell(row=i, column=11).value ="=FDS(R"+str(i)+","+chr(34)+"P_TOTAL_RETURNC("+chr(34)+"&$K$2&"+chr(34)+","+chr(34)+"&$K$3&"+chr(34)+")"+chr(34)+")/100"
-        ws.cell(row=i, column=12).value = "=I"+str(i)+"-$V$6"
-        ws.cell(row=i, column=13).value = "=J"+str(i)+"-$W$6"
-        ws.cell(row=i, column=14).value = "=K"+str(i)+"-$X$6"
-        ws.cell(row=i, column=15).value = "=IF(AND(H"+str(i)+">0,M"+str(i)+"<-5%),"+chr(34)+"Underperformed Bet"+chr(34)+","+chr(34)+chr(34)+")"
-        ws.cell(row=i, column=16).value = "=ABS(H"+str(i)+")"
-        ws.cell(row=i, column=17).value = "=LEFT(B"+str(i)+",FIND("+chr(34)+" "+chr(34)+",B"+str(i)+")-1)"
-        ws.cell(row=i, column=18).value = "=LEFT(B"+str(i)+",FIND("+chr(34)+" "+chr(34)+",B"+str(i)+")-1)&IF(RIGHT(B"+str(i)+",9)="+chr(34)+"TT Equity"+chr(34)+","+chr(34)+"-TW"+chr(34)+",IF(RIGHT(B"+str(i)+",9)="+chr(34)+"CH Equity"+chr(34)+","+chr(34)+"-CN"+chr(34)+",IF(RIGHT(B"+str(i)+",9)="+chr(34)+"GR Equity"+chr(34)+","+chr(34)+"-DE"+chr(34)+",IF(RIGHT(B"+str(i)+",9)="+chr(34)+"NA Equity"+chr(34)+","+chr(34)+"-NL"+chr(34)+","+chr(34)+"-"+chr(34)+"&MID(B"+str(i)+",FIND("+chr(34)+" "+chr(34)+",B"+str(i)+")+1,2)))))"
-    ws["O"+str(i+2)].value = "Other ACWI IMI Weighting"
-    ws["O" + str(i + 3)].value = "Active Share"
-
-    ws["P"+str(i+2)].value = "=1-SUM(G5:G"+str(i)+")"
-    ws["P" + str(i + 3)].value = "=SUM(P5:P"+str(i+2)+")/2"
-    ws["O"+str(i+2)].value = "Other ACWI IMI Weighting"
-    ws["O" + str(i + 3)].value = "Active Share"
-
-    ws["P"+str(i+2)].font=font_notbold
-    ws["P" + str(i + 3)].font=font_notbold
-
-    return ws
-def benchmark_weighting(ws,file_name):
-
-    for row in ws['A5:G1000']:
-        for cell in row:
-            cell.value = None
-    for row in ws['N5:O1000']:
-        for cell in row:
-            cell.value = None
-    ws["A1"].value = "iShares MSCI Global Semiconductors ETF (proxy of MSCI ACWI IMI Semi Index)"
-    ws["A2"].value = last_friday().strftime("%m/%d/%Y")
-    for i in range(2):
-        ws["A"+str(i+1)].font=font_bold
-        ws["A" + str(i + 1)].alignment = Alignment(vertical="center",horizontal="left")
-
-
-    header = ['Ticker',
-     'Name',
-     'GICS Sector',
-     'GICS Sub Industry',
-     'Location',
-     'Index Weight (%)',
-     'Weighting in Portfolio',
-     'Overweight/UnderWeight',
-     'MTD Performance',
-     'YTD Performance',
-     'MTD Excess Return',
-     'YTD Excess Return',
-     'Missed Out Names\n(Unweighted & YTD outperformed >5%)']
-    benchmark = pd.read_excel(file_name,header =2 ).dropna(axis=0)
-    benchmark=benchmark[benchmark[benchmark.columns[3]]=="Equity"]
-    x = benchmark[["Ticker","Name","Sector","Location","Weight (%)"]]
-    rows = dataframe_to_rows(x, index=False, header=False)
-
-    for r_idx, row in enumerate(rows, 5):
-        for c_idx, value in enumerate(row, 1):
-            if c_idx==4:
-                ws.cell(row=r_idx, column=c_idx+1, value=value)
-            elif c_idx==5:
-                ws.cell(row=r_idx, column=c_idx + 1, value=value/100)
-            else:
-                ws.cell(row=r_idx, column=c_idx, value=value)
-
-    for i in range(len(x)):
-        if  ws["E"+str(5+i)].value == "United States":
-            ticker = "-US"
-        elif ws["E"+str(5+i)].value == "Taiwan":
-            ticker = "-TW"
-        elif ws["E"+str(5+i)].value == "Japan":
-            ticker = "-JP"
-        elif ws["E"+str(5+i)].value == "Germany":
-            ticker = "-DE"
-        elif ws["E"+str(5+i)].value == "Netherlands":
-            ticker = "-NL"
-        elif ws["E"+str(5+i)].value == "China":
-            ticker = "-CH"
-        elif ws["E"+str(5+i)].value == "France":
-            ticker = "-FR"
-        elif ws["E"+str(5+i)].value == "Korea (South)":
-            ticker = "-KR"
-        elif ws["E"+str(5+i)].value == "Hong Kong":
-            ticker = "-HK"
-        else:
-            pass
-
-        ticker = ws["A"+str(5+i)].value+ticker
-        ws["D"+str(5+i)].value = "=INDEX('Benchmark Sub-industry'!C:C,MATCH('Benchmark Weighting'!N"+str(5+i)+",'Benchmark Sub-industry'!A:A,0))"
-        ws["G"+str(5+i)].value = "=IFERROR(INDEX('Portfolio Weighting'!F:F,MATCH('Benchmark Weighting'!A"+str(5+i)+",'Portfolio Weighting'!Q:Q,0)),0)"
-        ws["N"+str(5+i)].value = "=IF(E"+str(5+i)+"=$Q$5,A"+str(5+i)+"&"+chr(34)+" US"+chr(34)+",IF(E"+str(5+i)+"=$Q$6,A"+str(5+i)+"&"+chr(34)+" TT"+chr(34)+",IF(E"+str(5+i)+"=$Q$7,A"+str(5+i)+"&"+chr(34)+" NA"+chr(34)+",IF(E"+str(5+i)+"=$Q$8,A"+str(5+i)+"&"+chr(34)+" JP"+chr(34)+",IF(E"+str(5+i)+"=$Q$9,A"+str(5+i)+"&"+chr(34)+" GR"+chr(34)+",IF(E"+str(5+i)+"=$Q$10,A"+str(5+i)+"&"+chr(34)+" KS"+chr(34)+",IF(E"+str(5+i)+"=$Q$11,A"+str(5+i)+"&"+chr(34)+" CH"+chr(34)+",A"+str(5+i)+")))))))"
-        if i<30:
-            ws["H" + str(5 + i)].value="=G"+str(5+i)+"-F"+str(5+i)
-            ws["I" + str(5 + i)].value ="=FDS("+chr(34)+ticker+chr(34)+","+chr(34)+"P_TOTAL_RETURNC('"+(last_friday().replace(day=1)-timedelta(1)).strftime("%m/%d/%Y")+"','"+last_friday().strftime("%m/%d/%Y")+"')"+chr(34)+") / 100"
-            ws["J" + str(5 + i)].value ="=FDS("+chr(34)+ticker+chr(34)+","+chr(34)+"P_TOTAL_RETURNC('"+(last_friday().replace(day=1,month=1)-timedelta(1)).strftime("%m/%d/%Y")+"','"+last_friday().strftime("%m/%d/%Y")+"')"+chr(34)+") / 100"
-            ws["K" + str(5 + i)].value ="=I"+str(5+i)+"-'Portfolio Weighting'!V$6"
-            ws["L" + str(5 + i)].value ="=J"+str(5+i)+"-'Portfolio Weighting'!W$6"
-            ws["M" + str(5 + i)].value ="=IF(AND(H"+str(5+i)+"<0,L"+str(5+i)+">5%),"+chr(34)+"Missed"+chr(34)+","+chr(34)+chr(34)+")"
-            ws["O" + str(5 + i)].value = str(i + 1)
-        for j in range(5):
-            ws.cell(row=5+i, column=j+1).font=font_notbold
-            ws.cell(row=5 + i, column=j + 1).alignment = Alignment(vertical="center",horizontal="left")
-            ws.cell(row=5+i,column=j+6).alignment = Alignment(vertical="center",horizontal="center")
-            ws.cell(row=5 + i, column=j + 6).font=font_notbold
-            ws.cell(row=5 + i, column=j + 6).number_format="0.0%"
-
-    return ws
 def run_macro(macro_wb, macro_name, result_wb):
     xl = win32.gencache.EnsureDispatch("Excel.Application")
     xl.Visible = True
@@ -331,8 +185,10 @@ if __name__ == "__main__":
         web_scrap(soxx_url, soxx_csv, renamed_dir,"SOXX")
         wb=load_workbook("SVLO Semi Paper Portfolio_"+(last_friday()-timedelta(7)).strftime("%Y%m%d")+".xlsx")
         ws=wb["Portfolio Weighting"]
+        #the function is hided 
         ws=portfolio_weighting(ws)
         ws=wb["Benchmark Weighting"]
+        #the function is hided 
         ws=benchmark_weighting(ws,file_name)
         wb.save("SVLO Semi Paper Portfolio_"+last_friday().strftime("%Y%m%d")+".xlsx")
     marco="'"+os.getcwd()+"\\formatting_macro.xlsm'!Module1.databar_format"
